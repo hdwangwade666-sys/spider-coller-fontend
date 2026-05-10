@@ -57,6 +57,11 @@ const MAIN_TASK_PAGE_SIZE = 5
 const FIELD_PAGE_SIZE = 5
 const COMPONENT_PAGE_SIZE = 5
 const FILTER_DEBOUNCE_MS = 250
+const LOGIN_REQUEST_TYPE = '\u767b\u5f55\u8bf7\u6c42'
+const LOGIN_SUCCESS_LABEL = '\u767b\u5f55\u6210\u529f\u811a\u672c'
+const CAPTCHA_URL_LABEL = '\u9a8c\u8bc1\u7801\u5730\u5740'
+const CAPTCHA_PARAMS_LABEL = '\u9a8c\u8bc1\u7801\u53c2\u6570'
+const ENCODE_FIELD_LABEL = '\u7f16\u7801'
 
 const activeTab = ref('mainTask')
 const mainTasks = ref([])
@@ -1461,7 +1466,7 @@ onMounted(async () => {
             <div class="section-head">
               <div><h3>基础信息</h3></div>
             </div>
-            <div class="field-grid columns-3">
+            <div class="field-grid columns-3 subtask-form-grid">
               <div class="field">
                 <label>任务名称</label>
                 <input v-model="mainTaskModal.draft.taskName" />
@@ -1724,12 +1729,22 @@ onMounted(async () => {
                 <label>提交格式</label>
                 <input v-model="subTaskModal.draft.submitFormat" />
               </div>
-              <div class="field">
-                <label>文件后缀</label>
-                <input v-model="subTaskModal.draft.fileSuffix" />
-              </div>
-              <div class="field span-2">
-                <label>登录成功脚本</label>
+              <template v-if="subTaskModal.draft.requestType === LOGIN_REQUEST_TYPE">
+                <div class="field captcha-url-field">
+                  <label>{{ CAPTCHA_URL_LABEL }}</label>
+                  <input v-model="subTaskModal.draft.captchaUrl" />
+                </div>
+                <div class="field captcha-params-field">
+                  <label>{{ CAPTCHA_PARAMS_LABEL }}</label>
+                  <input v-model="subTaskModal.draft.captchaParams" />
+                </div>
+                <div class="field captcha-encode-field">
+                  <label>{{ ENCODE_FIELD_LABEL }}</label>
+                  <input v-model="subTaskModal.draft.encodeField" />
+                </div>
+              </template>
+              <div v-if="subTaskModal.draft.requestType === LOGIN_REQUEST_TYPE" class="field span-2">
+                <label>{{ LOGIN_SUCCESS_LABEL }}</label>
                 <textarea v-model="subTaskModal.draft.loginSuccessJs"></textarea>
               </div>
               <div class="field span-2">

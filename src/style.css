@@ -23,3 +23,34 @@
 .empty-note {
   margin: 0;
 }
+
+.subtask-form-grid .field {
+  min-width: 0;
+}
+
+.subtask-form-grid .captcha-url-field,
+.subtask-form-grid .captcha-params-field,
+.subtask-form-grid .captcha-encode-field {
+  justify-self: start;
+}
+
+.subtask-form-grid .captcha-url-field {
+  width: 60%;
+}
+
+.subtask-form-grid .captcha-params-field {
+  width: 50%;
+}
+
+.subtask-form-grid .captcha-encode-field {
+  width: 34%;
+  min-width: 96px;
+}
+
+@media (max-width: 900px) {
+  .subtask-form-grid .captcha-url-field,
+  .subtask-form-grid .captcha-params-field,
+  .subtask-form-grid .captcha-encode-field {
+    width: 100%;
+  }
+}
