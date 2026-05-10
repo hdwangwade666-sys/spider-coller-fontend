@@ -39,7 +39,6 @@ import {
 } from './utils/task-config-adapter'
 import {
   createFieldConfig,
-  createMouldComponent,
   createTask as createTaskApi,
   deleteMouldComponent,
   deleteFieldConfig,
@@ -48,6 +47,7 @@ import {
   pageFieldConfigs,
   pageMouldComponents,
   pageTaskSummaries,
+  createMouldComponent,
   updateFieldConfig,
   updateMouldComponent,
   updateTask,
@@ -169,12 +169,20 @@ const selectedStorage = computed(() => {
   return selectedMainTask.value?.storageConfigs.find((item) => item.id === selectedStorageId.value) || null
 })
 
+const selectedStorageComponents = computed(() => selectedStorage.value?.components || [])
+const componentTotal = computed(() => mouldComponents.value.length)
+const componentTotalPages = computed(() => Math.max(1, Math.ceil(componentTotal.value / componentPagination.pageSize)))
+const pagedMouldComponents = computed(() => {
+  const start = (componentPagination.page - 1) * componentPagination.pageSize
+  return mouldComponents.value.slice(start, start + componentPagination.pageSize)
+})
+
 const selectedTaskStatusClass = computed(() => {
   return selectedMainTask.value?.taskStatus === STATUS_ENABLED ? 'status-active' : 'status-disabled'
 })
 
 const fieldCountLabel = computed(() => String(fieldPagination.total || 0))
-const componentCountLabel = computed(() => String(componentPagination.total || 0))
+const componentCountLabel = computed(() => String(componentTotal.value || 0))
 const mainTaskCountLabel = computed(() => String(mainTaskPagination.total || 0))
 
 const canGoPrevTaskPage = computed(() => mainTaskPagination.page > 1)
@@ -182,7 +190,7 @@ const canGoNextTaskPage = computed(() => mainTaskPagination.page < mainTaskPagin
 const canGoPrevFieldPage = computed(() => fieldPagination.page > 1)
 const canGoNextFieldPage = computed(() => fieldPagination.page < fieldPagination.pages)
 const canGoPrevComponentPage = computed(() => componentPagination.page > 1)
-const canGoNextComponentPage = computed(() => componentPagination.page < componentPagination.pages)
+const canGoNextComponentPage = computed(() => componentPagination.page < componentTotalPages.value)
 
 watch(
   () => activeTab.value,
@@ -195,6 +203,12 @@ watch(
     }
   },
 )
+
+watch(componentTotalPages, (pages) => {
+  if (componentPagination.page > pages) {
+    componentPagination.page = pages
+  }
+})
 
 function showToast(message) {
   toast.message = message
@@ -221,7 +235,7 @@ function buildPager(current, total) {
 
 const mainTaskPager = computed(() => buildPager(mainTaskPagination.page, mainTaskPagination.pages))
 const fieldPager = computed(() => buildPager(fieldPagination.page, fieldPagination.pages))
-const componentPager = computed(() => buildPager(componentPagination.page, componentPagination.pages))
+const componentPager = computed(() => buildPager(componentPagination.page, componentTotalPages.value))
 
 function getStatusChipClass(status) {
   return status === STATUS_ENABLED ? 'status-active' : 'status-disabled'
@@ -239,6 +253,44 @@ function toQueryStatus(value) {
     return 0
   }
   return undefined
+}
+
+function getComponentNameOptions(currentValue = '') {
+  const names = [...new Set(mouldComponents.value.map((item) => item.componentName).filter(Boolean))]
+  if (currentValue && !names.includes(currentValue)) {
+    names.push(currentValue)
+  }
+  return names
+}
+
+function getMouldComponentTemplateByName(name) {
+  return mouldComponents.value.find((item) => item.componentName === name) || null
+}
+
+function applyComponentTemplate(target, componentName) {
+  if (!target) {
+    return
+  }
+
+  target.componentName = componentName || ''
+
+  if (!componentName) {
+    target.componentCode = ''
+    target.componentConfig = ''
+    target.componentType = ''
+    target.componentSetting = ''
+    return
+  }
+
+  const template = getMouldComponentTemplateByName(componentName)
+  if (!template) {
+    return
+  }
+
+  target.componentCode = template.componentCode || ''
+  target.componentConfig = template.componentConfig || ''
+  target.componentType = template.componentType || ''
+  target.componentSetting = template.componentSetting || ''
 }
 
 function getSelectedTaskIndex() {
@@ -323,8 +375,6 @@ async function loadMainTasks(options = {}) {
         silent: true,
         forceReload: options.forceReloadSelectedTaskDetail,
       })
-    } else {
-      storageComponents.value = []
     }
   } finally {
     loading.mainTasks = false
@@ -639,6 +689,7 @@ async function openStorageModal(view = 'list', storageId = '') {
   storageModal.open = true
   storageModal.view = view
   if (view === 'form') {
+    await ensureMouldComponentCatalog()
     storageModal.mode = storageId ? 'edit' : 'create'
     const source = storageId
       ? task.storageConfigs.find((item) => item.id === storageId)
@@ -651,7 +702,8 @@ function closeStorageModal() {
   storageModal.open = false
 }
 
-function openStorageForm(storageId = '') {
+async function openStorageForm(storageId = '') {
+  await ensureMouldComponentCatalog()
   storageModal.view = 'form'
   storageModal.mode = storageId ? 'edit' : 'create'
   const source = storageId
@@ -666,6 +718,18 @@ function addStorageFactor() {
 
 function removeStorageFactor(rowId) {
   storageModal.draft.factors = storageModal.draft.factors.filter((item) => item.id !== rowId)
+}
+
+function addStorageComponent() {
+  storageModal.draft.components.push(createComponentDraft())
+}
+
+function removeStorageComponent(rowId) {
+  storageModal.draft.components = storageModal.draft.components.filter((item) => item.id !== rowId)
+}
+
+function updateStorageComponentTemplate(row, componentName) {
+  applyComponentTemplate(row, componentName)
 }
 
 async function saveStorageDraft() {
@@ -817,26 +881,42 @@ function mapBackendComponent(component = {}) {
   })
 }
 
+async function ensureMouldComponentCatalog() {
+  if (mouldComponents.value.length) {
+    return mouldComponents.value
+  }
+
+  return loadMouldComponents({ page: 1, pageSize: 1000 })
+}
+
 async function loadMouldComponents(options = {}) {
   loading.components = true
   try {
-    const requestedPage = options.page ?? componentPagination.page ?? 1
-    const requestedSize = options.pageSize ?? componentPagination.pageSize ?? COMPONENT_PAGE_SIZE
+    const requestedPage = options.page ?? 1
+    const requestedSize = options.pageSize ?? 1000
     const pageData = await pageMouldComponents({
       pageNo: requestedPage,
       pageSize: requestedSize,
     })
-    componentPagination.page = Number(pageData?.current) || requestedPage
-    componentPagination.pageSize = Number(pageData?.size) || requestedSize
-    componentPagination.total = Number(pageData?.total) || 0
-    componentPagination.pages = Math.max(1, Number(pageData?.pages) || 1)
     mouldComponents.value = (pageData?.records || []).map(mapBackendComponent)
+    componentPagination.page = requestedPage
+    return mouldComponents.value
   } finally {
     loading.components = false
   }
 }
 
-function openComponentModal(mode, component = null) {
+async function openComponentModal(mode, component = null) {
+  componentModal.mode = mode
+  componentModal.draft = clone(component || createComponentDraft())
+  componentModal.open = true
+  return
+  if (!selectedStorage.value) {
+    showToast('请先选择入库清单')
+    return
+  }
+
+  await ensureMouldComponentCatalog()
   componentModal.mode = mode
   componentModal.draft = clone(component || createComponentDraft())
   componentModal.open = true
@@ -847,6 +927,7 @@ function closeComponentModal() {
 }
 
 async function saveComponentDraft() {
+  {
   const draft = clone(componentModal.draft)
   if (!draft.componentName.trim()) {
     showToast('请填写组件名称')
@@ -858,14 +939,50 @@ async function saveComponentDraft() {
     const payload = toComponentPayload(draft)
     if (draft.id.startsWith('cmp_')) {
       await createMouldComponent(payload)
+      componentPagination.page = 1
       showToast('组件配置已创建')
     } else {
       await updateMouldComponent(draft.id, payload)
       showToast('组件配置已更新')
     }
 
+    componentPagination.page = 1
     componentModal.open = false
     await loadMouldComponents({ page: componentPagination.page })
+  } finally {
+    loading.componentSaving = false
+  }
+  }
+  return
+  const task = await ensureTaskDetail(selectedMainTaskId.value)
+  const accessId = selectedStorage.value?.id
+  if (!task || !accessId) {
+    showToast('请先选择入库清单')
+    return
+  }
+
+  const draft = clone(componentModal.draft)
+  if (!draft.componentName.trim()) {
+    showToast('请填写组件名称')
+    return
+  }
+
+  loading.componentSaving = true
+  try {
+    const payload = toComponentPayload(draft)
+    if (draft.id.startsWith('cmp_')) {
+      await createAccessComponentApi(accessId, payload)
+      showToast('组件配置已创建')
+    } else {
+      await updateAccessComponentApi(draft.id, payload)
+      showToast('组件配置已更新')
+    }
+
+    componentModal.open = false
+    await ensureTaskDetail(selectedMainTaskId.value, {
+      silent: true,
+      forceReload: true,
+    })
   } finally {
     loading.componentSaving = false
   }
@@ -875,17 +992,34 @@ async function removeComponentById(componentId) {
   if (!window.confirm('确认删除该组件配置吗？')) {
     return
   }
+  const targetPage =
+    pagedMouldComponents.value.length === 1 && componentPagination.page > 1
+      ? componentPagination.page - 1
+      : componentPagination.page
   await deleteMouldComponent(componentId)
   showToast('组件配置已删除')
-  await loadMouldComponents({ page: componentPagination.page })
+  await loadMouldComponents({ page: targetPage })
+  return
+  if (!selectedStorage.value) {
+    showToast('请先选择入库清单')
+    return
+  }
+  if (!window.confirm('确认删除该组件配置吗？')) {
+    return
+  }
+  await deleteAccessComponentApi(componentId)
+  showToast('组件配置已删除')
+  await ensureTaskDetail(selectedMainTaskId.value, {
+    silent: true,
+    forceReload: true,
+  })
 }
 
 function goToComponentPage(page) {
-  if (page < 1 || page > componentPagination.pages) {
+  if (page < 1 || page > componentTotalPages.value) {
     return
   }
   componentPagination.page = page
-  loadMouldComponents({ page })
 }
 
 function openSubTaskManagerFromMainTask() {
@@ -1227,7 +1361,15 @@ onMounted(async () => {
                 </div>
               </div>
 
-              <div class="table-wrap">
+              <div v-if="!mouldComponents.length" class="empty-state">
+                <strong>还没有入库清单</strong>
+                <p class="empty-note">请先在主任务下选择或新增入库清单，再查看组件配置列表。</p>
+              </div>
+              <div v-else-if="false" class="empty-state">
+                <strong>当前入库清单还没有组件</strong>
+                <p class="empty-note">点击右上角“新增组件配置”进入入库清单组件维护。</p>
+              </div>
+              <div v-else class="table-wrap">
                 <table class="main-task-table component-list-table">
                   <colgroup>
                     <col style="width: 18%" />
@@ -1248,13 +1390,7 @@ onMounted(async () => {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-if="loading.components && !mouldComponents.length">
-                      <td colspan="6">组件配置加载中...</td>
-                    </tr>
-                    <tr v-else-if="!mouldComponents.length">
-                      <td colspan="6">暂无组件配置</td>
-                    </tr>
-                    <tr v-for="component in mouldComponents" :key="component.id">
+                    <tr v-for="component in pagedMouldComponents" :key="component.id">
                       <td>{{ component.componentName || '--' }}</td>
                       <td>{{ component.componentCode || '--' }}</td>
                       <td>{{ component.componentType || '--' }}</td>
@@ -1271,9 +1407,9 @@ onMounted(async () => {
                 </table>
               </div>
 
-              <div class="main-task-pagination">
+              <div v-if="mouldComponents.length" class="main-task-pagination">
                 <div class="pagination-meta">
-                  共 {{ componentPagination.total }} 条，当前第 {{ componentPagination.page }} / {{ componentPagination.pages }} 页
+                  共 {{ componentTotal }} 条，当前第 {{ componentPagination.page }} / {{ componentTotalPages }} 页
                 </div>
                 <div class="pagination-actions">
                   <button class="pager-btn" type="button" :disabled="!canGoPrevComponentPage" @click="goToComponentPage(componentPagination.page - 1)">
@@ -1788,10 +1924,6 @@ onMounted(async () => {
                   <option v-for="option in attributeTypeOptions" :key="option" :value="option">{{ option }}</option>
                 </select>
               </div>
-              <div class="field span-2">
-                <label>数据来源</label>
-                <input v-model="storageModal.draft.dataSource" />
-              </div>
               <div class="field">
                 <label>数据集</label>
                 <input v-model="storageModal.draft.dataset" />
@@ -1828,6 +1960,54 @@ onMounted(async () => {
                     <td><input v-model="row.regionCodeField" /></td>
                     <td class="table-actions">
                       <button class="ghost-btn" type="button" @click="removeStorageFactor(row.id)">删除</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="section-card">
+            <div class="section-head">
+              <div><h3>组件配置</h3></div>
+              <div class="inline-actions">
+                <button class="btn btn-soft" type="button" @click="addStorageComponent">新增组件</button>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>组件名称</th>
+                    <th>排序</th>
+                    <th>配置</th>
+                    <th class="table-actions">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-if="!storageModal.draft.components.length">
+                    <td colspan="4">暂无组件</td>
+                  </tr>
+                  <tr v-for="row in storageModal.draft.components" :key="row.id">
+                    <td>
+                      <select
+                        v-model="row.componentName"
+                        @change="updateStorageComponentTemplate(row, row.componentName)"
+                      >
+                        <option value="">请选择组件</option>
+                        <option
+                          v-for="option in getComponentNameOptions(row.componentName)"
+                          :key="`${row.id}-${option}`"
+                          :value="option"
+                        >
+                          {{ option }}
+                        </option>
+                      </select>
+                    </td>
+                    <td><input v-model="row.componentOrder" /></td>
+                    <td><textarea v-model="row.componentSetting"></textarea></td>
+                    <td class="table-actions">
+                      <button class="ghost-btn" type="button" @click="removeStorageComponent(row.id)">删除</button>
                     </td>
                   </tr>
                 </tbody>
@@ -1906,7 +2086,20 @@ onMounted(async () => {
         <div class="field-grid columns-3 component-form-grid">
           <div class="field component-name-field">
             <label>名称</label>
-            <input v-model="componentModal.draft.componentName" />
+              <input v-model="componentModal.draft.componentName" />
+              <select v-if="false"
+                v-model="componentModal.draft.componentName"
+              @change="applyComponentTemplate(componentModal.draft, componentModal.draft.componentName)"
+            >
+              <option value="">请选择组件</option>
+              <option
+                v-for="option in getComponentNameOptions(componentModal.draft.componentName)"
+                :key="`component-modal-${option}`"
+                :value="option"
+              >
+                {{ option }}
+              </option>
+            </select>
           </div>
           <div class="field component-code-field">
             <label>编号</label>
