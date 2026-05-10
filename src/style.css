@@ -1,0 +1,25 @@
+@import './legacy/styles.css';
+
+#app {
+  min-height: 100vh;
+}
+
+.row-selected {
+  background: rgba(251, 114, 153, 0.08);
+}
+
+.main-task-table tbody tr {
+  cursor: pointer;
+}
+
+.modal-shell--narrow {
+  width: min(900px, 100%);
+}
+
+.modal-dialog .section-card {
+  padding: 20px;
+}
+
+.empty-note {
+  margin: 0;
+}

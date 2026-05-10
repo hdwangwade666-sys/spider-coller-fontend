@@ -1,0 +1,214 @@
+<div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">DL</div>
+        <div><br><br/>
+          <h1>配置系统</h1>
+          <br><br/>
+        </div>
+      </div>
+
+      <nav class="side-nav">
+        <button class="nav-item active" data-section-target="mainTask">
+          <div class="nav-item-title">主任务配置 <span class="nav-badge">01</span></div>
+          <p class="nav-item-meta">主任务基础信息、循环规则、多个子任务、多个入库配置</p>
+        </button>
+        <button class="nav-item" data-section-target="fieldConfig">
+          <div class="nav-item-title">数据字段配置 <span class="nav-badge" id="badgeFieldCount">2</span></div>
+          <p class="nav-item-meta">全局维护租户、网站参数、系统字段之间的映射关系</p>
+        </button>
+        <button class="nav-item" data-section-target="componentConfig">
+          <div class="nav-item-title">组件配置 <span class="nav-badge" id="badgeComponentCount">2</span></div>
+          <p class="nav-item-meta">查看当前入库清单下的组件主键列表与基础字段</p>
+        </button>
+      </nav>
+
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-copy">
+          <h2>数据接入配置工作台</h2>
+        </div>
+        <div class="topbar-side">
+          <div class="highlight-card topbar-flow-card">
+            <h4>推荐配置流程</h4>
+            <p>先建立主任务基础信息，再在主任务下添加子任务与入库清单，随后分别进入子任务页和入库页继续维护字段配置。</p>
+            <div class="tag-list">
+              <span class="tag">主任务</span>
+              <span class="tag">子任务</span>
+              <span class="tag">入库策略</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <section class="workspace">
+        <div class="config-panel">
+          <div class="tab-panel active" data-panel="mainTask">
+            <section class="section-card">
+              <div class="table-panel-head">
+                <div class="table-panel-copy">
+                  <h3 class="table-panel-title">主任务列表</h3>
+                </div>
+              </div>
+              <div class="maintask-toolbar">
+                <div class="maintask-filters">
+                  <div class="field">
+                    <label for="filterTaskName">任务名称</label>
+                    <input id="filterTaskName" data-maintask-filter="taskName" placeholder="按任务名称筛选" />
+                  </div>
+                  <div class="field">
+                    <label for="filterTaskCode">任务编码</label>
+                    <input id="filterTaskCode" data-maintask-filter="taskCode" placeholder="按任务编码筛选" />
+                  </div>
+                  <div class="field">
+                    <label for="filterTaskStatus">任务状态</label>
+                    <select id="filterTaskStatus" data-maintask-filter="taskStatus">
+                      <option value="">全部状态</option>
+                      <option value="启用">启用</option>
+                      <option value="停用">停用</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="maintask-actions">
+                  <button class="btn btn-soft" type="button" data-reset-maintask-filters>重置筛选</button>
+                  <button class="btn btn-secondary" type="button" data-open-maintask-modal="create">新增主任务</button>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table class="main-task-table">
+                  <colgroup>
+                    <col style="width: 25%;" />
+                    <col style="width: 20%;" />
+                    <col style="width: 10%;" />
+                    <col style="width: 15%;" />
+                    <col style="width: 10%;" />
+                    <col style="width: 20%;" />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th>任务名称</th>
+                      <th>任务编码</th>
+                      <th>任务状态</th>
+                      <th>数据来源</th>
+                      <th>实时数据</th>
+                      <th class="table-actions">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="mainTaskTableBody"></tbody>
+                </table>
+              </div>
+              <div class="main-task-pagination" id="mainTaskPagination"></div>
+            </section>
+
+          </div>
+
+          <div class="tab-panel" data-panel="fieldConfig">
+            <section class="section-card">
+              <div class="section-head">
+                <div>
+                  <h3>数据字段配置</h3>
+                </div>
+              </div>
+              <div class="maintask-toolbar">
+                <div class="maintask-filters">
+                  <div class="field">
+                    <label for="filterFieldTenantId">租户编号</label>
+                    <input id="filterFieldTenantId" data-field-filter="tenantId" placeholder="按租户编号筛选" />
+                  </div>
+                  <div class="field">
+                    <label for="filterFieldSystemCode">系统编号</label>
+                    <input id="filterFieldSystemCode" data-field-filter="systemCode" placeholder="按系统编号筛选" />
+                  </div>
+                  <div class="field">
+                    <label for="filterFieldSystemName">系统名称</label>
+                    <input id="filterFieldSystemName" data-field-filter="systemName" placeholder="按系统名称筛选" />
+                  </div>
+                </div>
+                <div class="maintask-actions">
+                  <button class="btn btn-soft" type="button" data-reset-field-filters>重置筛选</button>
+                  <button class="btn btn-soft" id="addFieldConfigBtn" type="button">新增字段</button>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table class="main-task-table storage-list-table">
+                  <colgroup>
+                    <col style="width: 14%;" />
+                    <col style="width: 12%;" />
+                    <col style="width: 18%;" />
+                    <col style="width: 18%;" />
+                    <col style="width: 18%;" />
+                    <col style="width: 18%;" />
+                    <col style="width: 20%;" />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th>租户编号</th>
+                      <th>类型</th>
+                      <th>网站参数编号</th>
+                      <th>网站数据编号</th>
+                      <th>系统编号</th>
+                      <th>系统名称</th>
+                      <th class="table-actions">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="fieldConfigsBody"></tbody>
+                </table>
+              </div>
+              <div class="main-task-pagination" id="fieldConfigPagination"></div>
+            </section>
+          </div>
+
+          <div class="tab-panel" data-panel="componentConfig">
+            <section class="section-card">
+              <div class="table-panel-head">
+                <div class="table-panel-copy">
+                  <h3 class="table-panel-title">组件配置列表</h3>
+                </div>
+                <div class="inline-actions">
+                  <button class="btn btn-secondary" type="button" data-open-component-page-form="create">新增组件配置</button>
+                </div>
+              </div>
+              <div id="componentConfigPanel"></div>
+            </section>
+          </div>
+        </div>
+
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <div class="modal-overlay" id="subTaskModal">
+    <div class="modal-shell">
+      <button class="btn modal-close-icon" type="button" data-close-subtask-modal aria-label="关闭">×</button>
+      <div class="modal-dialog">
+        <div id="subTaskModalContent"></div>
+      </div>
+    </div>
+  </div>
+  <div class="modal-overlay" id="storageModal">
+    <div class="modal-shell">
+      <button class="btn modal-close-icon" type="button" data-close-storage-modal aria-label="关闭">×</button>
+      <div class="modal-dialog">
+        <div id="storageModalContent"></div>
+      </div>
+    </div>
+  </div>
+  <div class="modal-overlay" id="mainTaskModal">
+    <div class="modal-shell">
+      <button class="btn modal-close-icon" type="button" data-close-maintask-modal aria-label="关闭">×</button>
+      <div class="modal-dialog">
+        <div id="mainTaskModalContent"></div>
+      </div>
+    </div>
+  </div>
+  <div class="modal-overlay" id="componentConfigModal">
+    <div class="modal-shell">
+      <button class="btn modal-close-icon" type="button" data-cancel-component-page-form aria-label="关闭">×</button>
+      <div class="modal-dialog">
+        <div id="componentConfigModalContent"></div>
+      </div>
+    </div>
+  </div>
